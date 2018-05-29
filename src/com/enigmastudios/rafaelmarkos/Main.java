@@ -11,7 +11,7 @@ public class Main {
 
         while (!exitFlag) {
             System.out.println("Enter state name in all caps.");
-            String inputState = sc.next();
+            String inputState = sc.nextLine();
             if (inputState.equals("EXIT")) {
                 exitFlag = true;
             }

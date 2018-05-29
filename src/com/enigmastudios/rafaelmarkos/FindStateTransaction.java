@@ -43,23 +43,27 @@ public class FindStateTransaction implements Runnable{
             boolean contains=false;
             while (rs.next()) {
                 System.out.println(rs.getString(3));
-                if (rs.getString(3).contains(stateName)) {
+                if (rs.getString(3).equals(stateName)) {
                     contains=true;
                 }
             }
             if (!contains) {
-                sql = "CREATE TABLE " + stateName + " " +
+                sql = "CREATE TABLE '" + stateName + "' " +
                         " (TCOUNT  INT                 NOT NULL, " +
                         "  TDATE   DATE  PRIMARY KEY   NOT NULL)";
                 stmt.executeUpdate(sql);
                 date = LocalDate.of(2013,Month.JANUARY,01);
             }
             else {
-                rs = stmt.executeQuery("SELECT * FROM " + stateName + " WHERE TDATE = (SELECT max(TDATE) FROM " + stateName + ");");
+                rs = stmt.executeQuery("SELECT * FROM '" + stateName + "' WHERE TDATE = (SELECT max(TDATE) FROM '" + stateName + "');");
+                if (rs!=null)
+                    date = LocalDate.parse(rs.getString("TDATE"), sqlFormat);
+                else
+                    date = LocalDate.of(2013, Month.JANUARY, 01);
 
-                date = LocalDate.parse(rs.getString("TDATE"), sqlFormat);
             }
 
+            System.setProperty("webdriver.chrome.driver", "C:/WebScraping/SeleniumVersion/lib/Chromedriver/chromedriver.exe");
             WebDriver driver = new ChromeDriver();
 
             driver.manage().timeouts().implicitlyWait(1 , TimeUnit.SECONDS);
@@ -70,6 +74,7 @@ public class FindStateTransaction implements Runnable{
             Element state;
             Element row;
             Element transactions;
+            int noOfTransactions;
 
             while (date.isBefore(tomorrow)) {
 
@@ -87,17 +92,25 @@ public class FindStateTransaction implements Runnable{
                 currentPage = driver.getPageSource();
                 doc = Jsoup.parse(currentPage);
                 state = doc.selectFirst(":containsOwn("+stateName+")");
-                row = state.parent();
-                transactions = row.child(2);
-                System.out.println("No. of transactions on " + date.format(inputFormat) + " for "+stateName+" = " + transactions.ownText());
+                if (state!=null) {
+                    row = state.parent();
+                    transactions = row.child(2);
+                    noOfTransactions = Integer.parseInt(transactions.ownText().replaceAll(",",""));
+                }
+                else {
+                    noOfTransactions = 0;
+                }
+                System.out.println("No. of transactions on " + date.format(inputFormat) + " for "+stateName+" = " +String.valueOf(noOfTransactions) );
 
-                if (rs.next()&&rs.getString("TDATE").equals(sqlDate)) {
-                    sql = "UPDATE "+ stateName +" set TCOUNT = "+ transactions.ownText().replaceAll(",","")
+                rs = stmt.executeQuery("SELECT * FROM '" + stateName + "' WHERE TDATE = (SELECT max(TDATE) FROM '" + stateName + "');");
+
+                if (rs!=null&&rs.next()&&rs.getString("TDATE").equals(sqlDate)) {
+                    sql = "UPDATE '"+ stateName +"' set TCOUNT = "+ String.valueOf(noOfTransactions)
                             +" WHERE TDATE = date('" + sqlDate + "');";
                 }
                 else {
-                    sql = "INSERT INTO " + stateName + " (TCOUNT,TDATE) " +
-                            "VALUES (" + transactions.ownText().replaceAll(",", "") + "," + "date('" + sqlDate + "'));";
+                    sql = "INSERT INTO '" + stateName + "' (TCOUNT,TDATE) " +
+                            "VALUES (" + String.valueOf(noOfTransactions) + "," + "date('" + sqlDate + "'));";
                 }
                 stmt.executeUpdate(sql);
 
